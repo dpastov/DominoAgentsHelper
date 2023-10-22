@@ -6,7 +6,7 @@
 	<artifactId>DominoAgentsHelper</artifactId>
 	<packaging>jar</packaging>
 	<version>1.0.0</version>
-	<name>DominoAgentHelper</name>
+	<name>AgentsHelper</name>
 	<url>http://maven.apache.org</url>
 
 	<properties>

@@ -24,7 +24,7 @@ public class AgentsHelper extends JavaServerAddin {
 	protected MessageQueue 			mq						= null;
 	private int 					dominoTaskID			= 0;
 
-	final String JADDIN_NAME = "DominoAgentHelper";
+	final String JADDIN_NAME = "AgentsHelper";
 	final String JADDIN_VERSION = "1.0.0";
 	final String JADDIN_DATE = "2023-10-23 13:05 CET";
 
@@ -130,6 +130,7 @@ public class AgentsHelper extends JavaServerAddin {
 		}
 		else if ("update".equals(cmd)) {
 			updateCommands();
+			logMessage("update - completed");
 		}
 		else if ("fire".equals(cmd)) {
 			eventsFireForce();

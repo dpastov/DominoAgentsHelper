@@ -1,0 +1,46 @@
+name: Build with Maven and Java 8
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+ 
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: 1. Set up Java 8
+      uses: actions/setup-java@v3
+      with:
+        java-version: '8'
+        distribution: 'adopt'
+        
+    - name: 2. Get version of Genesis
+      run: echo "version=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)" >> $GITHUB_ENV
+    - name: 3. Get version of GJA
+      run: echo "gja_version=$(grep -A 2 '<artifactId>gja</artifactId>' pom.xml | grep version | cut -d'>' -f2 | cut -d'<' -f1)" >> $GITHUB_ENV
+    - name: 4. Download Notes.jar and add it to local maven repository
+      run: |
+        wget 'https://domino-1.dmytro.cloud/Files.nsf/all/file/$FILE/Notes.jar' -O Notes.jar -q --show-progress
+        echo "adding Notes.jar to local maven storage"
+        mvn install:install-file -Dfile="Notes.jar" -DgroupId=lotus.notes -DartifactId=notes -Dversion=10.0 -Dpackaging=jar 
+    - name: 5. Download GJA-${{ env.gja_version }}.jar and add it to local maven repository
+      run: |
+        wget 'https://github.com/DominoGenesis/JavaServerAddinGenesis/releases/download/v${{ env.gja_version }}/gja-${{ env.gja_version }}.jar' -O gja-${{ env.gja_version }}.jar -q --show-progress
+        echo "adding gja-${{ env.gja_version }}.jar to local maven storage"
+        mvn install:install-file -Dfile="gja-${{ env.gja_version }}.jar" -DgroupId=net.prominic -DartifactId=gja -Dpackaging=jar -Dversion=${{ env.gja_version }}
+    - name: 6. Build with Maven
+      run: mvn package
+    - name: 7. Create release
+      id: create_release
+      uses: softprops/action-gh-release@v1
+      with:
+        name: Release v${{ env.version }}
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag_name: v${{ env.version }}
+        files: |
+          target/Genesis-${{ env.version }}.jar
+        draft: false
+        prerelease: false

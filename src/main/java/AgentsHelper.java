@@ -25,8 +25,8 @@ public class AgentsHelper extends JavaServerAddin {
 	private int 					dominoTaskID			= 0;
 
 	final String JADDIN_NAME = "AgentsHelper";
-	final String JADDIN_VERSION = "1.0.0";
-	final String JADDIN_DATE = "2023-10-23 13:05 CET";
+	final String JADDIN_VERSION = "1.0.1";
+	final String JADDIN_DATE = "2023-10-22 18:30 CET";
 
 	// Instance variables
 	private Session m_session = null;
@@ -64,8 +64,6 @@ public class AgentsHelper extends JavaServerAddin {
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-
-		terminate();
 	}
 
 	protected void listen() {
@@ -331,20 +329,21 @@ public class AgentsHelper extends JavaServerAddin {
 		return (AddInCreateStatusLine(name));
 	}
 
+	@Override
+	public void termThread() {
+		logMessage("termThread");
 
-	/**
-	 * This method is called by the Java runtime during garbage collection.
-	 */
-	public void finalize() {
 		terminate();
 
-		super.finalize();
+		super.termThread();
 	}
-
+	
 	/**
 	 * Terminate all variables
 	 */
 	private void terminate() {
+		logMessage("terminate");
+		
 		try {
 			recycle(m_session);
 

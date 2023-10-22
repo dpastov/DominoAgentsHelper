@@ -1,5 +1,4 @@
 package org.demo;
-
 import lotus.domino.Session;
 
 import java.util.ArrayList;
@@ -21,11 +20,11 @@ import lotus.domino.NotesFactory;
 import lotus.notes.addins.JavaServerAddin;
 import lotus.notes.internal.MessageQueue;
 
-public class DominoAgentHelper extends JavaServerAddin {
+public class DominoAgentsHelper extends JavaServerAddin {
 	protected static final int 		MQ_MAX_MSGSIZE 			= 1024;
 	protected MessageQueue 			mq						= null;
 	private int 					dominoTaskID			= 0;
-	
+
 	final String JADDIN_NAME = "DominoAgentHelper";
 	final String JADDIN_VERSION = "1.0.0";
 	final String JADDIN_DATE = "2023-10-23 11:00 CET";
@@ -34,14 +33,14 @@ public class DominoAgentHelper extends JavaServerAddin {
 	private Session m_session = null;
 	private String m_filePath = "agentshelper.nsf";
 	private List<HashMap<String, Object>> m_events = null;
-	
+
 	// we expect our first parameter is dedicated for secondsElapsed
-	public DominoAgentHelper(String[] args) {
+	public DominoAgentsHelper(String[] args) {
 		m_filePath = args[0];
 	}
 
 	// constructor if no parameters
-	public DominoAgentHelper() {
+	public DominoAgentsHelper() {
 	}
 
 	public void runNotes() {
@@ -50,56 +49,11 @@ public class DominoAgentHelper extends JavaServerAddin {
 			this.setName(this.getJavaAddinName());
 			// Create the status line showed in 'Show Task' console command
 			this.dominoTaskID = createAddinStatusLine(this.getJavaAddinName());
-			
-			m_session = NotesFactory.createSession();
-			Database database = m_session.getDatabase(null, m_filePath);
-			if (database == null) {
-				logMessage("(!) LOAD FAILED - database not found: " + m_filePath);
-				terminate();
-				return;
-			}
-			
-			m_events = new ArrayList<HashMap<String, Object>>();
 
-			View view = database.getView("Commands");
-			Document doc = view.getFirstDocument();
-			while (doc != null) {
-				Document docNext = view.getNextDocument(doc);
+			updateCommands();
 
-				// start new thread for each agent
-				String name = doc.getItemValueString("Name");
-				String json = doc.getItemValueString("JSON");
-
-				JSONObject obj = getJSONObject(json);
-				if (obj != null) {
-					String command = (String) obj.get("command");	// required
-					Long interval = (Long) obj.get("interval");		// required
-					boolean runOnStart = obj.containsKey("runOnStart") && (Boolean) obj.get("runOnStart");	// optional
-					String runIf = (String) obj.get("runIf");		// optional
-					
-					HashMap<String, Object> event = new HashMap<String, Object>();
-					event.put("command", command);
-					event.put("interval", interval);
-					event.put("runOnStart", runOnStart);
-					event.put("runIf", runIf);
-					event.put("lastRun", new Date());
-					
-					m_events.add(event);
-				}
-				else {
-					logMessage(name + ": invalid json");
-				}
-
-				recycle(doc);
-				doc = docNext;
-			}
-			
-			// display loading settings
 			showInfo();
-
-			recycle(view);
-			recycle(database);
-
+			
 			listen();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -107,7 +61,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 
 		terminate();
 	}
-	
+
 	protected void listen() {
 		StringBuffer qBuffer = new StringBuffer(MQ_MAX_MSGSIZE);
 
@@ -145,7 +99,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 				if (!cmd.isEmpty()) {
 					resolveMessageQueueState(cmd);
 				};
-				
+
 				// check if we need to run events
 				eventsFire();
 			}
@@ -153,7 +107,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 			logMessage(e.getMessage());
 		}
 	}
-	
+
 	protected boolean resolveMessageQueueState(String cmd) {
 		boolean flag = true;
 
@@ -166,6 +120,9 @@ public class DominoAgentHelper extends JavaServerAddin {
 		else if ("info".equals(cmd)) {
 			showInfo();
 		}
+		else if ("update".equals(cmd)) {
+			updateCommands();
+		}
 		else if ("fire".equals(cmd)) {
 			eventsFireForce();
 		}
@@ -175,14 +132,68 @@ public class DominoAgentHelper extends JavaServerAddin {
 
 		return flag;
 	}
-	
+
+	private void updateCommands() {
+		try {
+			m_session = NotesFactory.createSession();
+			Database database = m_session.getDatabase(null, m_filePath);
+			if (database == null) {
+				logMessage("(!) LOAD FAILED - database not found: " + m_filePath);
+				terminate();
+				return;
+			}
+
+			m_events = new ArrayList<HashMap<String, Object>>();
+
+			View view = database.getView("Commands");
+			Document doc = view.getFirstDocument();
+			while (doc != null) {
+				Document docNext = view.getNextDocument(doc);
+
+				// start new thread for each agent
+				String name = doc.getItemValueString("Name");
+				String json = doc.getItemValueString("JSON");
+
+				JSONObject obj = getJSONObject(json);
+				if (obj != null) {
+					String command = (String) obj.get("command");	// required
+					Long interval = (Long) obj.get("interval");		// required
+					boolean runOnStart = obj.containsKey("runOnStart") && (Boolean) obj.get("runOnStart");	// optional
+					String runIf = (String) obj.get("runIf");		// optional
+
+					HashMap<String, Object> event = new HashMap<String, Object>();
+					event.put("command", command);
+					event.put("interval", interval);
+					event.put("runOnStart", runOnStart);
+					event.put("runIf", runIf);
+					event.put("lastRun", new Date());
+
+					m_events.add(event);
+				}
+				else {
+					logMessage(name + ": invalid json");
+				}
+
+				recycle(doc);
+				doc = docNext;
+			}
+
+			recycle(view);
+			recycle(database);
+		} catch (Exception e) {
+			e.printStackTrace();
+		}
+	}
+
 	protected void showHelp() {
 		logMessage("*** Usage ***");
 		logMessage("load runjava " + this.getJavaAddinName());
-		logMessage("tell " + this.getJavaAddinName() + " <command>");
+		logMessage("tell " + this.getJavaAddinName() + " <agentshelper.nsf>");
 		logMessage("   quit             Unload addin");
 		logMessage("   help             Show help information (or -h)");
-		logMessage("   info             Show version and more of Genesis");
+		logMessage("   info             Show version");
+		logMessage("   fire            	Fire all agents from config");
+		logMessage("   update           Update config from <agentshelper.nsf>");
 
 		int year = Calendar.getInstance().get(Calendar.YEAR);
 		logMessage("Copyright (C) Prominic.NET, Inc. 2023" + (year > 2023 ? " - " + Integer.toString(year) : ""));
@@ -192,7 +203,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 	protected void quit() {
 		this.stopAddin();
 	}
-	
+
 	protected String getQName() {
 		return MSG_Q_PREFIX + getJavaAddinName().toUpperCase();
 	}
@@ -200,7 +211,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 	protected String getJavaAddinName() {
 		return this.getClass().getName();
 	}
-	
+
 	private void eventsFireOnStart() {
 		for (int i = 0; i < m_events.size(); i++) {
 			HashMap<String, Object> event = m_events.get(i);
@@ -210,7 +221,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 			}
 		}
 	}
-	
+
 	private void eventsFire() {
 		Date now = new Date();
 
@@ -226,7 +237,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 			};
 		}
 	}
-	
+
 	private void eventsFireForce() {
 		for (int i = 0; i < m_events.size(); i++) {
 			HashMap<String, Object> event = m_events.get(i);
@@ -243,7 +254,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 			e.printStackTrace();
 		}
 	}
-	
+
 	/**
 	 * JSONObject
 	 */
@@ -313,7 +324,7 @@ public class DominoAgentHelper extends JavaServerAddin {
 		return (AddInCreateStatusLine(name));
 	}
 
-	
+
 	/**
 	 * This method is called by the Java runtime during garbage collection.
 	 */
@@ -330,6 +341,13 @@ public class DominoAgentHelper extends JavaServerAddin {
 		try {
 			recycle(m_session);
 
+			if (this.mq != null) {
+				this.mq.close(0);
+				this.mq = null;
+			}
+			
+			if (dominoTaskID != 0) AddInDeleteStatusLine(dominoTaskID);
+			
 			logMessage("UNLOADED (OK)");
 		} catch (NotesException e) {
 			logMessage("UNLOADED (**FAILED**)");

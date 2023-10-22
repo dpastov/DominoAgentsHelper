@@ -1,4 +1,3 @@
-package org.demo;
 import lotus.domino.Session;
 
 import java.util.ArrayList;

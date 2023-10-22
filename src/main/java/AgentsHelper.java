@@ -19,14 +19,14 @@ import lotus.domino.NotesFactory;
 import lotus.notes.addins.JavaServerAddin;
 import lotus.notes.internal.MessageQueue;
 
-public class DominoAgentsHelper extends JavaServerAddin {
+public class AgentsHelper extends JavaServerAddin {
 	protected static final int 		MQ_MAX_MSGSIZE 			= 1024;
 	protected MessageQueue 			mq						= null;
 	private int 					dominoTaskID			= 0;
 
 	final String JADDIN_NAME = "DominoAgentHelper";
 	final String JADDIN_VERSION = "1.0.0";
-	final String JADDIN_DATE = "2023-10-23 11:00 CET";
+	final String JADDIN_DATE = "2023-10-23 13:05 CET";
 
 	// Instance variables
 	private Session m_session = null;
@@ -34,16 +34,23 @@ public class DominoAgentsHelper extends JavaServerAddin {
 	private List<HashMap<String, Object>> m_events = null;
 
 	// we expect our first parameter is dedicated for secondsElapsed
-	public DominoAgentsHelper(String[] args) {
+	public AgentsHelper(String[] args) {
 		m_filePath = args[0];
 	}
 
 	// constructor if no parameters
-	public DominoAgentsHelper() {
+	public AgentsHelper() {
 	}
 
 	public void runNotes() {
 		try {
+			m_session = NotesFactory.createSession();
+			Database database = m_session.getDatabase(null, m_filePath);
+			if (database == null || !database.isOpen()) {
+				logMessage("(!) LOAD FAILED - database not found: " + m_filePath);
+				return;
+			}
+			
 			// Set the Java thread name to the class name (default would be "Thread-n")
 			this.setName(this.getJavaAddinName());
 			// Create the status line showed in 'Show Task' console command
@@ -82,6 +89,8 @@ public class DominoAgentsHelper extends JavaServerAddin {
 				return;
 			}
 
+			setAddinState("Active");
+			
 			this.eventsFireOnStart();	// start events before loop
 			while (this.addInRunning() && (messageQueueState != MessageQueue.ERR_MQ_QUITTING)) {
 				/* gives control to other task in non preemptive os*/
@@ -106,7 +115,7 @@ public class DominoAgentsHelper extends JavaServerAddin {
 			logMessage(e.getMessage());
 		}
 	}
-
+	
 	protected boolean resolveMessageQueueState(String cmd) {
 		boolean flag = true;
 
@@ -134,11 +143,9 @@ public class DominoAgentsHelper extends JavaServerAddin {
 
 	private void updateCommands() {
 		try {
-			m_session = NotesFactory.createSession();
 			Database database = m_session.getDatabase(null, m_filePath);
-			if (database == null) {
+			if (database == null || !database.isOpen()) {
 				logMessage("(!) LOAD FAILED - database not found: " + m_filePath);
-				terminate();
 				return;
 			}
 
